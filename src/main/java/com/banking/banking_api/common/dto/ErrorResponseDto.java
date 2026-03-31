@@ -18,6 +18,6 @@ public class ErrorResponseDto {
     private int status;
     private String error;
     private String message;
-    private Map<String, String> validationErrros;
+    private Map<String, String> validationErrors;
 
 }

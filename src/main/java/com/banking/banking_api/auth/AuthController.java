@@ -1,5 +1,7 @@
 package com.banking.banking_api.auth;
 
+import com.banking.banking_api.auth.dto.LoginRequestDto;
+import com.banking.banking_api.auth.dto.LoginResponseDto;
 import com.banking.banking_api.auth.dto.RegisterRequestDto;
 import com.banking.banking_api.auth.dto.RegisterResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
@@ -8,6 +10,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,6 +32,13 @@ public class AuthController {
             ) {
         RegisterResponseDto response = authService.registerNewUser(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponseDto> loginUser(
+            @Valid @RequestBody LoginRequestDto request){
+
+        return ResponseEntity.ok(authService.loginUser(request));
     }
 
 

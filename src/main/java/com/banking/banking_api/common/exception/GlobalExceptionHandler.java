@@ -3,6 +3,7 @@ package com.banking.banking_api.common.exception;
 import com.banking.banking_api.common.dto.ErrorResponseDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -41,11 +42,11 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponseDto>  handleValidation(MethodArgumentNotValidException ex){
+    public ResponseEntity<ErrorResponseDto>  handleValidation(MethodArgumentNotValidException ex) {
 
         Map<String, String> validationErrors = new HashMap<>();
 
-        for(FieldError filedError : ex.getBindingResult().getFieldErrors()){
+        for (FieldError filedError : ex.getBindingResult().getFieldErrors()) {
             validationErrors.put(filedError.getField(), filedError.getDefaultMessage());
         }
 
@@ -54,12 +55,37 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message("Validation Failed")
-                .validationErrros(validationErrors)
+                .validationErrors(validationErrors)
                 .build();
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 
     }
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> handleNotFound(ResourceNotFoundException ex){
+        ErrorResponseDto error = ErrorResponseDto.builder()
+                .timeStamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error(HttpStatus.NOT_FOUND.getReasonPhrase())
+                .message(ex.getMessage())
+                .build();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+
+
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponseDto> handleAuthentication(AuthenticationException ex) {
+        ErrorResponseDto error = ErrorResponseDto.builder()
+                .timeStamp(LocalDateTime.now())
+                .status(HttpStatus.UNAUTHORIZED.value())
+                .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
+                .message("Invalid credentials")
+                .build();
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
+
 
 
 
