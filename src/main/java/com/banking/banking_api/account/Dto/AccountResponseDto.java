@@ -5,6 +5,7 @@ import com.banking.banking_api.account.AccountType;
 import com.banking.banking_api.user.Role;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Schema(description = "Response payload for account creation")
@@ -19,6 +20,9 @@ public record AccountResponseDto(
 
         @Schema(description = "Currency", example = "GBP")
         String currency,
+
+        @Schema(description = "Current Balance")
+        BigDecimal balance,
 
         @Schema(description = "Account Status", example = "ACTIVE")
         AccountStatus accountStatus,
