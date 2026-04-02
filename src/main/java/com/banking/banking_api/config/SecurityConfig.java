@@ -1,5 +1,6 @@
 package com.banking.banking_api.config;
 
+import com.banking.banking_api.security.CustomeAuthenticationEntryPoint;
 import com.banking.banking_api.security.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,7 +30,7 @@ public class SecurityConfig {
 
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http , JwtAuthFilter jwtAuthFilter) throws Exception{
+    public SecurityFilterChain filterChain(HttpSecurity http , JwtAuthFilter jwtAuthFilter, CustomeAuthenticationEntryPoint authenticationEntryPoint) throws Exception{
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
@@ -41,6 +42,9 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**","/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/v1/account/**").authenticated()
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(authenticationEntryPoint)
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
