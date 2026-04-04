@@ -1,7 +1,8 @@
 package com.banking.banking_api.account;
 
-import com.banking.banking_api.account.Dto.AccountResponseDto;
+import com.banking.banking_api.account.Dto.*;
 import io.jsonwebtoken.Jwt;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -39,6 +40,27 @@ public class AccountController {
             @RequestParam String accountNumber){
         return ResponseEntity.ok(accountService.getMyAccountDetails(email, accountNumber));
     }
+
+    @PostMapping("/{accountNumber}/deposit")
+    public ResponseEntity<TransactionResponseDto> depositMoney(
+            @Valid @RequestBody DepositRequestDto depositRequest){
+        return  ResponseEntity.status(HttpStatus.CREATED).body(accountService.depositMoney(depositRequest));
+
+
+    }
+
+    @PostMapping("/{myAccountNumber}/transfer")
+    public ResponseEntity<TransferResponseDto> transferMoney(
+            @Valid @RequestBody TransferRequestDto transferRequest,
+            @AuthenticationPrincipal String email,
+            @PathVariable String myAccountNumber){
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(accountService.transferMoney(email, myAccountNumber,transferRequest));
+
+
+
+    }
+
 
 
 }
