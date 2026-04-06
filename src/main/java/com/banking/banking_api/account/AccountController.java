@@ -57,7 +57,12 @@ public class AccountController {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(accountService.transferMoney(email, myAccountNumber,transferRequest));
 
+    }
 
+    @PostMapping("/{accountNumber}/withdraw")
+    public ResponseEntity<TransactionResponseDto> withdrawMoney(
+            @Valid @RequestBody WithdrawRequestDto withdrawRequest){
+        return ResponseEntity.status(HttpStatus.CREATED).body(accountService.withdrawMoney(withdrawRequest));
 
     }
 

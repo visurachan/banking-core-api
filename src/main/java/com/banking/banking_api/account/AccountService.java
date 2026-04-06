@@ -12,6 +12,7 @@ import io.jsonwebtoken.Jwt;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -114,6 +115,7 @@ public class AccountService {
     }
 
 
+    @Transactional
     public TransactionResponseDto depositMoney(DepositRequestDto depositRequest) {
         Account account = accountRepository.findByAccountNumber(depositRequest.accountNumber())
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
@@ -126,48 +128,68 @@ public class AccountService {
 
         String transactionRef = referenceGenerator.generate();
 
-        TransactionLog transactionLog = TransactionLog.builder()
-                .reference(transactionRef)
-                .amount(depositRequest.amount())
-                .status(TransactionStatus.COMPLETED)
-                .transactionType(TransactionType.DEPOSIT)
-                .description(depositRequest.note())
-                .fromAccount(bankAccount)
-                .toAccount(account)
-                .build();
 
-        TransactionLog savedLog = transactionLogRepository.save(transactionLog);
+        TransactionLog transactionLog = transactionLogService.savePending(
+                TransactionLog.builder()
+                        .reference(transactionRef)
+                        .amount(depositRequest.amount())
+                        .status(TransactionStatus.PENDING)
+                        .description(depositRequest.note())
+                        .fromAccount(bankAccount)
+                        .toAccount(account)
+                        .transactionType(TransactionType.DEPOSIT)
+                        .build()
 
-        LedgerEntry bankDebit = LedgerEntry.builder()
-                .account(bankAccount)
-                .amount(depositRequest.amount())
-                .transactionLog(savedLog)
-                .entryType(EntryType.DEBIT)
-                .description(depositRequest.note())
-                .build();
 
-        LedgerEntry customerCredit = LedgerEntry.builder()
-                .account(account)
-                .amount(depositRequest.amount())
-                .transactionLog(savedLog)
-                .entryType(EntryType.CREDIT)
-                .description(depositRequest.note())
-                .build();
 
-        ledgerEntryRepository.save(bankDebit);
-        ledgerEntryRepository.save(customerCredit);
-
-        BigDecimal newBalance = calculateAccountBalance(account);
-
-        return new TransactionResponseDto(
-                account.getAccountNumber(),
-                transactionRef,
-                TransactionType.DEPOSIT,
-                depositRequest.amount(),
-                account.getCurrency(),
-                newBalance,
-                LocalDateTime.now()
         );
+
+
+        try {
+            LedgerEntry bankDebit = LedgerEntry.builder()
+                    .account(bankAccount)
+                    .amount(depositRequest.amount())
+                    .transactionLog(transactionLog)
+                    .entryType(EntryType.DEBIT)
+                    .description(depositRequest.note())
+                    .build();
+
+            LedgerEntry customerCredit = LedgerEntry.builder()
+                    .account(account)
+                    .amount(depositRequest.amount())
+                    .transactionLog(transactionLog)
+                    .entryType(EntryType.CREDIT)
+                    .description(depositRequest.note())
+                    .build();
+
+            ledgerEntryRepository.save(bankDebit);
+            ledgerEntryRepository.save(customerCredit);
+
+            transactionLog.setStatus(TransactionStatus.COMPLETED);
+            transactionLogRepository.save(transactionLog);
+
+
+            BigDecimal newBalance = calculateAccountBalance(account);
+
+            return new TransactionResponseDto(
+                    account.getAccountNumber(),
+                    transactionRef,
+                    TransactionType.DEPOSIT,
+                    depositRequest.amount(),
+                    account.getCurrency(),
+                    newBalance,
+                    LocalDateTime.now()
+            );
+
+
+        } catch (Exception e){
+            transactionLogService.updateStatus(transactionLog,TransactionStatus.FAILED);
+            throw e;
+
+        }
+
+
+
 
 
 
@@ -283,6 +305,91 @@ public class AccountService {
         } catch (Exception e){
             transactionLogService.updateStatus(transactionLog,TransactionStatus.FAILED);
             throw e;
+        }
+
+
+    }
+
+    @Transactional
+    public TransactionResponseDto withdrawMoney(WithdrawRequestDto withdrawRequest) {
+
+        //This function is for withdrawing like from atm so no ownership checking
+        Account account = accountRepository.findByAccountNumber(withdrawRequest.accountNumber())
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+
+        if (account.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new IllegalStateException("Account is not active");
+
+
+        }
+        Account bankAccount = accountRepository.findByAccountNumber("BANK-INTERNAL")
+                .orElseThrow(() -> new ResourceNotFoundException("bank internal account not found"));
+
+        String transactionRef = referenceGenerator.generate();
+
+
+        TransactionLog transactionLog = transactionLogService.savePending(
+                TransactionLog.builder()
+                        .reference(transactionRef)
+                        .amount(withdrawRequest.amount())
+                        .status(TransactionStatus.PENDING)
+                        .description(withdrawRequest.note())
+                        .fromAccount(account)
+                        .toAccount(bankAccount)
+                        .transactionType(TransactionType.WITHDRAW)
+                        .build()
+
+
+        );
+
+
+        try {
+
+            BigDecimal balance = calculateAccountBalance(account);
+            if (balance.compareTo(withdrawRequest.amount()) < 0) {
+                throw new InsufficientFundsException("Not enough funds");
+            }
+            LedgerEntry accountDebit = LedgerEntry.builder()
+                    .account(account)
+                    .amount(withdrawRequest.amount())
+                    .transactionLog(transactionLog)
+                    .entryType(EntryType.DEBIT)
+                    .description(withdrawRequest.note())
+                    .build();
+
+            LedgerEntry bankCredit = LedgerEntry.builder()
+                    .account(bankAccount)
+                    .amount(withdrawRequest.amount())
+                    .transactionLog(transactionLog)
+                    .entryType(EntryType.CREDIT)
+                    .description(withdrawRequest.note())
+                    .build();
+
+            ledgerEntryRepository.save(accountDebit);
+            ledgerEntryRepository.save(bankCredit);
+
+            transactionLog.setStatus(TransactionStatus.COMPLETED);
+            transactionLogRepository.save(transactionLog);
+
+
+            BigDecimal newBalance = calculateAccountBalance(account);
+
+            return new TransactionResponseDto(
+                    account.getAccountNumber(),
+                    transactionRef,
+                    TransactionType.WITHDRAW,
+                    withdrawRequest.amount(),
+                    account.getCurrency(),
+                    newBalance,
+                    LocalDateTime.now()
+            );
+
+
+
+        } catch (Exception e) {
+            transactionLogService.updateStatus(transactionLog, TransactionStatus.FAILED);
+            throw e;
+
         }
 
 
