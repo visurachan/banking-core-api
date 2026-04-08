@@ -16,4 +16,6 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
                                         @Param("entryType") EntryType entryType);
 
 
+
+
 }

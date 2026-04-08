@@ -12,6 +12,8 @@ import io.jsonwebtoken.Jwt;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
@@ -394,4 +396,57 @@ public class AccountService {
 
 
     }
-}
+
+    public Page<TransactionHistoryDto> getTransactionHistory(String email, String accountNumber, Pageable pageable) {
+
+        Account myAccount = accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new ResourceNotFoundException("The Account you want to send money from is not found"));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (!accountRepository.existsByAccountNumberAndUser(myAccount.getAccountNumber(), user)) {
+            throw new AccessDeniedException("You do not own the account you are trying to send money from");
+
+        }
+
+        Page<TransactionLog> logs = transactionLogRepository.findByFromAccountOrToAccount(myAccount,myAccount, pageable);
+
+        return logs.map(log -> mapToDto(log,myAccount));
+
+
+
+
+    }
+
+    private TransactionHistoryDto mapToDto(TransactionLog log, Account myAccount) {
+        String fromAccount = log.getFromAccount().getAccountNumber();
+        String toAccount = log.getToAccount().getAccountNumber();
+        String direction = null;
+
+        if (log.getTransactionType() == TransactionType.WITHDRAW ||
+                log.getTransactionType() == TransactionType.DEPOSIT){
+            fromAccount = null;
+            toAccount = null;
+
+        }else{
+            direction = log.getToAccount().getAccountNumber()
+                    .equals(myAccount.getAccountNumber()) ? "IN" : "OUT";
+        }
+
+        return new TransactionHistoryDto(
+                log.getReference(),
+                log.getTransactionType(),
+                log.getStatus(),
+                log.getAmount(),
+                myAccount.getCurrency(),
+                fromAccount,
+                toAccount,
+                direction,
+                log.getDescription(),
+                log.getCreatedAt()
+        );
+    }
+
+
+
+
+    }
