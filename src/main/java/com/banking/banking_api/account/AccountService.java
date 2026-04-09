@@ -39,6 +39,7 @@ public class AccountService {
     private final TransactionLogRepository transactionLogRepository;
     private final TransactionLogService transactionLogService;
 
+    @Transactional
     public AccountResponseDto createNewCurrentAccount(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
@@ -60,6 +61,7 @@ public class AccountService {
 
     }
 
+    @Transactional(readOnly = true)
     public List<AccountResponseDto> getAccountsByUser(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -95,6 +97,7 @@ public class AccountService {
     }
 
 
+    @Transactional(readOnly = true)
     public AccountResponseDto getMyAccountDetails(String email, String accountNumber)  {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -397,6 +400,7 @@ public class AccountService {
 
     }
 
+    @Transactional(readOnly = true)
     public Page<TransactionHistoryDto> getTransactionHistory(String email, String accountNumber, Pageable pageable) {
 
         Account myAccount = accountRepository.findByAccountNumber(accountNumber)
