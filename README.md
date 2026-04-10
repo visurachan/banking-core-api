@@ -24,12 +24,13 @@ Instead of using a simple balance column updated with `balance + amount`, this p
 - **Double-Entry Ledger** — every operation produces a DEBIT and a CREDIT entry; balance is always calculated from ledger history
 - **Transactional Integrity** — `@Transactional` with PENDING → COMPLETED/FAILED status pattern; audit log survives rollback via `REQUIRES_NEW` propagation
 - **Exception Handling** — custom exceptions with consistent error responses
+- **Transaction History** — paginated endpoint to retrieve ledger entries per account
+- **Idempotency Keys** — prevent duplicate transactions on retried requests
 
 ### 🚧 In Progress / Planned
 
-- **Transaction History** — paginated endpoint to retrieve ledger entries per account
+- **Optimistic Locking** - prevent race conditions on concurrent transactions
 - **Redis Caching** — cache derived balances to avoid full ledger scan on every request
-- **Idempotency Keys** — prevent duplicate transactions on retried requests
 - **Rate Limiting** — per-user request throttling
 - **Currency Support** — multi-currency accounts with exchange rate handling
 
@@ -124,13 +125,21 @@ jwt.expiration=86400000
 
 ### Transactions — `/api/v1/account`
 
-| Method | Endpoint | Auth                                   | Description |
-|---|---|----------------------------------------|---|
-| POST | `/{accountNumber}/deposit` | Public                                 | Deposit funds into an account |
-| POST | `/{accountNumber}/withdraw` | Public (needs seperate authentication) | Withdraw funds from an account |
-| POST | `/{myAccountNumber}/transfer` | Bearer Token                           | Transfer funds to another account |
+| Method | Endpoint                       | Auth                                   | Description                       |
+|--------|--------------------------------|----------------------------------------|-----------------------------------|
+| POST   | `/deposit`                     | Public                                 | Deposit funds into an account     |
+| POST   | `/withdraw`                    | Public (needs seperate authentication) | Withdraw funds from an account    |
+| POST   | `/{myAccountNumber}/transfer`  | Bearer Token                           | Transfer funds to another account |
+| GET    | `/{accountNumber}/transactions` | Bearer Token                           | Get paginated transaction history |
 
 ---
+
+## Versions
+
+| Version                                                                                  | Description |
+|------------------------------------------------------------------------------------------|---|
+| [v0.1git add .0](https://github.com/visurachandula/banking-core-api/releases/tag/v0.1.0) | Core banking features — auth, accounts, deposit, withdraw, transfer, transaction history |
+| [v0.2.0](https://github.com/visurachandula/banking-core-api/releases/tag/v0.2.0)         | Idempotency keys for deposit, withdraw and transfer |
 
 
 ## Project Status
