@@ -157,4 +157,4 @@ jwt.expiration=86400000
 
 ## Project Status
 
-This project is under active development as a portfolio piece targeting backend engineering roles in fintech. Core banking operations, transactional integrity, idempotency, and concurrent transaction safety are complete. Upcoming work focuses on performance optimisation via Redis caching for balance derivation.
+This project is under active development as a portfolio piece targeting backend engineering roles. Core banking operations, transactional integrity, idempotency, and concurrent transaction safety are complete. Upcoming work focuses on performance optimisation via Redis caching for balance derivation.
