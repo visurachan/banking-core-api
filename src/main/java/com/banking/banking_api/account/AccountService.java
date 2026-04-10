@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
@@ -27,6 +28,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @AllArgsConstructor
@@ -41,6 +43,7 @@ public class AccountService {
     private final TransactionLogRepository transactionLogRepository;
     private final TransactionLogService transactionLogService;
     private final IdempotencyService idempotencyService;
+    private final RedisTemplate<String, String> redisTemplate;
 
     @Transactional
     public AccountResponseDto createNewCurrentAccount(String email) {
@@ -94,9 +97,20 @@ public class AccountService {
     }
 
     private BigDecimal calculateAccountBalance(Account account){
+
+        String cacheKey = "balance::"+ account.getAccountNumber();
+        String cached = redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null){
+            return new BigDecimal(cached);
+        }
+
         BigDecimal credits = ledgerEntryRepository.sumByAccountAndEntryType(account, EntryType.CREDIT);
         BigDecimal debits = ledgerEntryRepository.sumByAccountAndEntryType(account,EntryType.DEBIT);
-        return credits.subtract(debits);
+        BigDecimal balance = credits.subtract(debits);
+
+        redisTemplate.opsForValue().set(cacheKey,balance.toString(),24, TimeUnit.HOURS);
+
+        return balance;
     }
 
 
@@ -181,11 +195,15 @@ public class AccountService {
             ledgerEntryRepository.save(bankDebit);
             ledgerEntryRepository.save(customerCredit);
 
+
             transactionLog.setStatus(TransactionStatus.COMPLETED);
             transactionLogRepository.save(transactionLog);
 
             account.setLastTransactionAt(LocalDateTime.now());
             accountRepository.save(account);
+
+            invalidateBalanceCache(account.getAccountNumber());
+            invalidateBalanceCache(bankAccount.getAccountNumber());
 
 
             BigDecimal newBalance = calculateAccountBalance(account);
@@ -303,6 +321,9 @@ public class AccountService {
             accountRepository.save(myAccount);
             accountRepository.save(toAccount);
 
+            invalidateBalanceCache(myAccount.getAccountNumber());
+            invalidateBalanceCache(toAccount.getAccountNumber());
+
             TransferResponseDto response = new TransferResponseDto(
                     myAccount.getAccountNumber(),
                     toAccount.getAccountNumber(),
@@ -399,11 +420,16 @@ public class AccountService {
             ledgerEntryRepository.save(accountDebit);
             ledgerEntryRepository.save(bankCredit);
 
+
             transactionLog.setStatus(TransactionStatus.COMPLETED);
             transactionLogRepository.save(transactionLog);
 
             account.setLastTransactionAt(LocalDateTime.now());
             accountRepository.save(account);
+
+
+            invalidateBalanceCache(account.getAccountNumber());
+            invalidateBalanceCache(bankAccount.getAccountNumber());
 
 
             BigDecimal newBalance = calculateAccountBalance(account);
@@ -482,6 +508,10 @@ public class AccountService {
                 log.getDescription(),
                 log.getCreatedAt()
         );
+    }
+
+    private void invalidateBalanceCache(String accountNumber) {
+        redisTemplate.delete("balance::" + accountNumber);
     }
 
 
