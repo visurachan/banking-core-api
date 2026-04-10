@@ -11,6 +11,10 @@ import java.util.List;
 import java.util.UUID;
 
 public interface TransactionLogRepository extends JpaRepository<TransactionLog, UUID> {
-    @Query("SELECT t FROM TransactionLog t JOIN FETCH t.fromAccount JOIN FETCH t.toAccount WHERE t.fromAccount = :account OR t.toAccount = :account")
-    Page<TransactionLog> findByFromAccountOrToAccount(@Param("account") Account fromAccount, @Param("account") Account toAccount, Pageable pageable);
+
+
+    @Query("SELECT t FROM TransactionLog t JOIN FETCH t.fromAccount JOIN FETCH t.toAccount " +
+            "WHERE (t.fromAccount = :account) " +
+            "OR (t.toAccount = :account AND t.status = 'COMPLETED')")
+    Page<TransactionLog> findByFromAccountOrToAccount(@Param("account") Account fromAccount, Pageable pageable);
 }

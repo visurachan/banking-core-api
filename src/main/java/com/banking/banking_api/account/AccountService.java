@@ -434,7 +434,7 @@ public class AccountService {
 
         }
 
-        Page<TransactionLog> logs = transactionLogRepository.findByFromAccountOrToAccount(myAccount,myAccount, pageable);
+        Page<TransactionLog> logs = transactionLogRepository.findByFromAccountOrToAccount(myAccount, pageable);
 
         return logs.map(log -> mapToDto(log,myAccount));
 
