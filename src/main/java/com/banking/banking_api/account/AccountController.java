@@ -48,28 +48,46 @@ public class AccountController {
         return ResponseEntity.ok(accountService.getMyAccountDetails(email, accountNumber));
     }
 
-    @PostMapping("/{accountNumber}/deposit")
+    @PostMapping("/deposit")
     public ResponseEntity<TransactionResponseDto> depositMoney(
+            @Parameter(
+                    description = "Unique key to prevent duplicate transactions. Generate one by running 'uuidgen' in terminal or use an online UUID generator (e.g. uuidgenerator.net)",
+                    required = true,
+                    example = "550e8400-e29b-41d4-a716-446655440000"
+            )
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody DepositRequestDto depositRequest){
-        return  ResponseEntity.status(HttpStatus.CREATED).body(accountService.depositMoney(depositRequest));
+        return  ResponseEntity.status(HttpStatus.CREATED).body(accountService.depositMoney(idempotencyKey,depositRequest));
 
 
     }
 
     @PostMapping("/{myAccountNumber}/transfer")
     public ResponseEntity<TransferResponseDto> transferMoney(
+            @Parameter(
+                    description = "Unique key to prevent duplicate transactions. Generate one by running 'uuidgen' in terminal or use an online UUID generator (e.g. uuidgenerator.net)",
+                    required = true,
+                    example = "550e8400-e29b-41d4-a716-446655440000"
+            )
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody TransferRequestDto transferRequest,
             @AuthenticationPrincipal String email,
             @PathVariable String myAccountNumber){
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(accountService.transferMoney(email, myAccountNumber,transferRequest));
+        return ResponseEntity.status(HttpStatus.CREATED).body(accountService.transferMoney(idempotencyKey,email, myAccountNumber,transferRequest));
 
     }
 
-    @PostMapping("/{accountNumber}/withdraw")
+    @PostMapping("/withdraw")
     public ResponseEntity<TransactionResponseDto> withdrawMoney(
+            @Parameter(
+                    description = "Unique key to prevent duplicate transactions. Generate one by running 'uuidgen' in terminal or use an online UUID generator (e.g. uuidgenerator.net)",
+                    required = true,
+                    example = "550e8400-e29b-41d4-a716-446655440000"
+            )
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody WithdrawRequestDto withdrawRequest){
-        return ResponseEntity.status(HttpStatus.CREATED).body(accountService.withdrawMoney(withdrawRequest));
+        return ResponseEntity.status(HttpStatus.CREATED).body(accountService.withdrawMoney(idempotencyKey,withdrawRequest));
 
     }
 

@@ -108,6 +108,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
+    @ExceptionHandler(InsufficientFundsException.class)
+    public ResponseEntity<ErrorResponseDto> handleInsufficientFunds(InsufficientFundsException ex) {
+        ErrorResponseDto error = ErrorResponseDto.builder()
+                .timeStamp(LocalDateTime.now())
+                .status(HttpStatus.UNPROCESSABLE_ENTITY.value())
+                .error(HttpStatus.UNPROCESSABLE_ENTITY.getReasonPhrase())
+                .message(ex.getMessage())
+                .build();
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(error);
+    }
+
 
 
 

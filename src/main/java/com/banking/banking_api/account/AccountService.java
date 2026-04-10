@@ -3,6 +3,7 @@ package com.banking.banking_api.account;
 import com.banking.banking_api.account.Dto.*;
 import com.banking.banking_api.common.exception.InsufficientFundsException;
 import com.banking.banking_api.common.exception.ResourceNotFoundException;
+import com.banking.banking_api.common.idempotency.IdempotencyService;
 import com.banking.banking_api.common.util.TransactionReferenceGenerator;
 import com.banking.banking_api.ledger.*;
 import com.banking.banking_api.user.User;
@@ -25,6 +26,7 @@ import java.math.BigDecimal;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -38,6 +40,7 @@ public class AccountService {
     private final TransactionReferenceGenerator referenceGenerator;
     private final TransactionLogRepository transactionLogRepository;
     private final TransactionLogService transactionLogService;
+    private final IdempotencyService idempotencyService;
 
     @Transactional
     public AccountResponseDto createNewCurrentAccount(String email) {
@@ -121,7 +124,15 @@ public class AccountService {
 
 
     @Transactional
-    public TransactionResponseDto depositMoney(DepositRequestDto depositRequest) {
+    public TransactionResponseDto depositMoney(String idempotencyKey, DepositRequestDto depositRequest) {
+
+
+        Optional<ResponseEntity<TransactionResponseDto>> stored =
+                idempotencyService.getStoredResponse(idempotencyKey,TransactionResponseDto.class);
+        if (stored.isPresent()){
+            return stored.get().getBody();
+        }
+
         Account account = accountRepository.findByAccountNumber(depositRequest.accountNumber())
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
 
@@ -176,7 +187,7 @@ public class AccountService {
 
             BigDecimal newBalance = calculateAccountBalance(account);
 
-            return new TransactionResponseDto(
+            TransactionResponseDto response = new TransactionResponseDto(
                     account.getAccountNumber(),
                     transactionRef,
                     TransactionType.DEPOSIT,
@@ -185,6 +196,10 @@ public class AccountService {
                     newBalance,
                     LocalDateTime.now()
             );
+
+            idempotencyService.store(idempotencyKey, response, 201);
+
+            return response;
 
 
         } catch (Exception e){
@@ -200,8 +215,13 @@ public class AccountService {
 
     }
     @Transactional
-    public TransferResponseDto transferMoney(String email, String myAccountNumber,TransferRequestDto transferRequest) {
+    public TransferResponseDto transferMoney(String idempotencyKey,String email, String myAccountNumber,TransferRequestDto transferRequest) {
 
+        Optional<ResponseEntity<TransferResponseDto>> stored =
+                idempotencyService.getStoredResponse(idempotencyKey,TransferResponseDto.class);
+        if (stored.isPresent()){
+            return stored.get().getBody();
+        }
 
         //Sender Account basic validation checks
         Account myAccount = accountRepository.findByAccountNumber(myAccountNumber)
@@ -274,7 +294,7 @@ public class AccountService {
             transactionLog.setStatus(TransactionStatus.COMPLETED);
             transactionLogRepository.save(transactionLog);
 
-            return new TransferResponseDto(
+            TransferResponseDto response = new TransferResponseDto(
                     myAccount.getAccountNumber(),
                     toAccount.getAccountNumber(),
                     transactionLog.getReference(),
@@ -288,35 +308,32 @@ public class AccountService {
             );
 
 
+            idempotencyService.store(idempotencyKey, response, 201);
+            return response;
+
+
 
 
         } catch (InsufficientFundsException e) {
             transactionLogService.updateStatus(transactionLog,TransactionStatus.FAILED);
 
-            return new TransferResponseDto(
-                    myAccount.getAccountNumber(),
-                    toAccount.getAccountNumber(),
-                    transactionLog.getReference(),
-                    TransactionType.TRANSFER,
-                    TransactionStatus.FAILED,
-                    transferRequest.amount(),
-                    myAccount.getCurrency(),
-                    null,
-                    e.getMessage(),
-                    LocalDateTime.now()
-
-            );
-
-        } catch (Exception e){
+            throw  e;
+        } catch (Exception ex){
             transactionLogService.updateStatus(transactionLog,TransactionStatus.FAILED);
-            throw e;
+            throw ex;
         }
 
 
     }
 
     @Transactional
-    public TransactionResponseDto withdrawMoney(WithdrawRequestDto withdrawRequest) {
+    public TransactionResponseDto withdrawMoney(String idempotencyKey,WithdrawRequestDto withdrawRequest) {
+
+        Optional<ResponseEntity<TransactionResponseDto>> stored =
+                idempotencyService.getStoredResponse(idempotencyKey,TransactionResponseDto.class);
+        if (stored.isPresent()){
+            return stored.get().getBody();
+        }
 
         //This function is for withdrawing like from atm so no ownership checking
         Account account = accountRepository.findByAccountNumber(withdrawRequest.accountNumber())
@@ -379,7 +396,7 @@ public class AccountService {
 
             BigDecimal newBalance = calculateAccountBalance(account);
 
-            return new TransactionResponseDto(
+            TransactionResponseDto response = new TransactionResponseDto(
                     account.getAccountNumber(),
                     transactionRef,
                     TransactionType.WITHDRAW,
@@ -388,6 +405,11 @@ public class AccountService {
                     newBalance,
                     LocalDateTime.now()
             );
+
+            idempotencyService.store(idempotencyKey, response, 201);
+
+            return response;
+
 
 
 
