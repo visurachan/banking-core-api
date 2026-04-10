@@ -36,6 +36,16 @@ Instead of using a simple balance column updated with `balance + amount`, this p
 
 ---
 
+## Versions
+
+| Version | Description |
+|---|---|
+| [v0.1.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.1.0) | Core banking features — auth, accounts, deposit, withdraw, transfer, transaction history |
+| [v0.2.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.2.0) | Idempotency keys for deposit, withdraw and transfer |
+
+
+---
+
 ## Tech Stack
 
 | Layer | Technology                 |
@@ -134,12 +144,6 @@ jwt.expiration=86400000
 
 ---
 
-## Versions
-
-| Version                                                                                  | Description |
-|------------------------------------------------------------------------------------------|---|
-| [v0.1git add .0](https://github.com/visurachandula/banking-core-api/releases/tag/v0.1.0) | Core banking features — auth, accounts, deposit, withdraw, transfer, transaction history |
-| [v0.2.0](https://github.com/visurachandula/banking-core-api/releases/tag/v0.2.0)         | Idempotency keys for deposit, withdraw and transfer |
 
 
 ## Project Status
