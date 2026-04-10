@@ -55,5 +55,11 @@ public class Account {
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
 
+    @Version
+    private Long version;
+
+    private LocalDateTime lastTransactionAt;
+
+
 
 }

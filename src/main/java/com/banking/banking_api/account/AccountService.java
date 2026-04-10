@@ -184,6 +184,9 @@ public class AccountService {
             transactionLog.setStatus(TransactionStatus.COMPLETED);
             transactionLogRepository.save(transactionLog);
 
+            account.setLastTransactionAt(LocalDateTime.now());
+            accountRepository.save(account);
+
 
             BigDecimal newBalance = calculateAccountBalance(account);
 
@@ -294,6 +297,12 @@ public class AccountService {
             transactionLog.setStatus(TransactionStatus.COMPLETED);
             transactionLogRepository.save(transactionLog);
 
+            myAccount.setLastTransactionAt(LocalDateTime.now());
+            toAccount.setLastTransactionAt(LocalDateTime.now());
+
+            accountRepository.save(myAccount);
+            accountRepository.save(toAccount);
+
             TransferResponseDto response = new TransferResponseDto(
                     myAccount.getAccountNumber(),
                     toAccount.getAccountNumber(),
@@ -393,6 +402,9 @@ public class AccountService {
             transactionLog.setStatus(TransactionStatus.COMPLETED);
             transactionLogRepository.save(transactionLog);
 
+            account.setLastTransactionAt(LocalDateTime.now());
+            accountRepository.save(account);
+
 
             BigDecimal newBalance = calculateAccountBalance(account);
 
@@ -471,6 +483,8 @@ public class AccountService {
                 log.getCreatedAt()
         );
     }
+
+
 
 
 
