@@ -26,10 +26,11 @@ Instead of using a simple balance column updated with `balance + amount`, this p
 - **Exception Handling** — custom exceptions with consistent error responses
 - **Transaction History** — paginated endpoint to retrieve ledger entries per account
 - **Idempotency Keys** — prevent duplicate transactions on retried requests
+- **Optimistic Locking** - prevent race conditions on concurrent transactions
 
 ### 🚧 In Progress / Planned
 
-- **Optimistic Locking** - prevent race conditions on concurrent transactions
+
 - **Redis Caching** — cache derived balances to avoid full ledger scan on every request
 - **Rate Limiting** — per-user request throttling
 - **Currency Support** — multi-currency accounts with exchange rate handling
@@ -38,10 +39,11 @@ Instead of using a simple balance column updated with `balance + amount`, this p
 
 ## Versions
 
-| Version | Description |
-|---|---|
+| Version                                                                      | Description |
+|------------------------------------------------------------------------------|---|
 | [v0.1.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.1.0) | Core banking features — auth, accounts, deposit, withdraw, transfer, transaction history |
 | [v0.2.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.2.0) | Idempotency keys for deposit, withdraw and transfer |
+| [v0.3.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.3.0) | Optimistic locking implemented     |
 
 
 ---
@@ -77,6 +79,15 @@ A custom `OncePerRequestFilter` extracts email and role from the JWT and sets th
 
 **Feature-based packaging**
 Code is organised by domain (`account`, `auth`, `transaction`) rather than layer (`controller`, `service`, `repository`). This scales better and makes each feature self-contained.
+
+**Idempotency keys for safe retries**
+Every mutating endpoint (deposit, withdraw, transfer) requires a client-generated `Idempotency-Key` header. The key and response are stored in a dedicated `idempotency_keys` table on first processing. Subsequent requests with the same key within 24 hours return the cached response without reprocessing. This prevents duplicate transactions caused by network retries or client-side errors.
+
+**Idempotency key stored only on success**
+The idempotency key is stored inside the `try` block after all ledger writes succeed. If the transaction fails, the key is never stored — allowing the client to retry with the same key and have it processed as a fresh request.
+
+**Optimistic locking for concurrent transaction safety**
+The `Account` entity uses a `@Version` field managed by Hibernate. On every transaction, Hibernate appends `AND version=?` to the UPDATE query. If two concurrent requests attempt to modify the same account simultaneously, the second write will match 0 rows and throw `ObjectOptimisticLockingFailureException`, which is caught by the global exception handler and returned as `409 CONFLICT`. This prevents race conditions without the performance cost of pessimistic locking.
 
 ---
 
@@ -144,8 +155,6 @@ jwt.expiration=86400000
 
 ---
 
-
-
 ## Project Status
 
-This project is under active development as a portfolio piece targeting backend engineering roles in fintech. The core banking operations and transactional patterns are complete. Upcoming work focuses on performance (Redis caching), reliability (idempotency), and observability (transaction history).
+This project is under active development as a portfolio piece targeting backend engineering roles in fintech. Core banking operations, transactional integrity, idempotency, and concurrent transaction safety are complete. Upcoming work focuses on performance optimisation via Redis caching for balance derivation.
