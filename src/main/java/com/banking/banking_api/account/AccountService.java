@@ -5,6 +5,8 @@ import com.banking.banking_api.common.exception.InsufficientFundsException;
 import com.banking.banking_api.common.exception.ResourceNotFoundException;
 import com.banking.banking_api.common.idempotency.IdempotencyService;
 import com.banking.banking_api.common.util.TransactionReferenceGenerator;
+import com.banking.banking_api.kafka.event.TransactionCreatedEvent;
+import com.banking.banking_api.kafka.producer.TransactionEventProducer;
 import com.banking.banking_api.ledger.*;
 import com.banking.banking_api.user.User;
 import com.banking.banking_api.user.UserRepository;
@@ -44,6 +46,7 @@ public class AccountService {
     private final TransactionLogService transactionLogService;
     private final IdempotencyService idempotencyService;
     private final RedisTemplate<String, String> redisTemplate;
+    private final TransactionEventProducer transactionEventProducer;
 
     @Transactional
     public AccountResponseDto createNewCurrentAccount(String email) {
@@ -220,6 +223,20 @@ public class AccountService {
 
             idempotencyService.store(idempotencyKey, response, 201);
 
+            transactionEventProducer.publishTransactionCreated(
+                    TransactionCreatedEvent.builder()
+                            .transactionId(transactionRef)
+                            .sourceAccountId(bankAccount.getAccountNumber())
+                            .destinationAccountId(account.getAccountNumber())
+                            .amount(depositRequest.amount())
+                            .currency(account.getCurrency())
+                            .transactionType(TransactionType.DEPOSIT.name())
+                            .timestamp(LocalDateTime.now())
+                            .build()
+            );
+
+
+
             return response;
 
 
@@ -339,6 +356,19 @@ public class AccountService {
 
 
             idempotencyService.store(idempotencyKey, response, 201);
+
+            transactionEventProducer.publishTransactionCreated(
+                    TransactionCreatedEvent.builder()
+                            .transactionId(transactionLog.getReference())
+                            .sourceAccountId(myAccount.getAccountNumber())
+                            .destinationAccountId(toAccount.getAccountNumber())
+                            .amount(transferRequest.amount())
+                            .currency(myAccount.getCurrency())
+                            .transactionType(TransactionType.TRANSFER.name())
+                            .timestamp(LocalDateTime.now())
+                            .build()
+            );
+
             return response;
 
 
@@ -446,6 +476,17 @@ public class AccountService {
 
             idempotencyService.store(idempotencyKey, response, 201);
 
+            transactionEventProducer.publishTransactionCreated(
+                    TransactionCreatedEvent.builder()
+                            .transactionId(transactionRef)
+                            .sourceAccountId(account.getAccountNumber())
+                            .destinationAccountId(bankAccount.getAccountNumber())
+                            .amount(withdrawRequest.amount())
+                            .currency(account.getCurrency())
+                            .transactionType(TransactionType.WITHDRAW.name())
+                            .timestamp(LocalDateTime.now())
+                            .build()
+            );
             return response;
 
 

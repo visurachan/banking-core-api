@@ -1,4 +1,4 @@
-version: '3.8'
+
 
 services:
   postgres:
@@ -12,20 +12,14 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - banking-network
+
 
   redis:
     image: redis:7-alpine
     container_name: banking-redis
     ports:
       - "6379:6379"
-    networks:
-      - banking-network
 
 volumes:
   postgres_data:
 
-networks:
-  banking-network:
-    driver: bridge
