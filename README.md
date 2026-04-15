@@ -1,6 +1,6 @@
 # banking-core-api
 
-A production-grade banking REST API built with **Java 21**, **Spring Boot 3**, and **PostgreSQL**, implementing the backend engineering patterns used in production fintech systems — double-entry ledger accounting, idempotent transactions, optimistic locking for concurrency safety, and Redis-cached balance derivation.
+A production-grade banking REST API built with **Java 21**, **Spring Boot 3**, and **PostgreSQL**, It implements the backend engineering patterns used in production fintech systems — double-entry ledger accounting, idempotent transactions, optimistic locking for concurrency safety, and Redis-cached balance derivation. It also functions as an **Event Producer**, broadcasting financial events via **Apache Kafka** to support a decoupled microservices ecosystem.
 
 
 ## Features
@@ -19,7 +19,7 @@ A production-grade banking REST API built with **Java 21**, **Spring Boot 3**, a
 - **Idempotency Keys** — prevent duplicate transactions on retried requests
 - **Optimistic Locking** - prevent race conditions on concurrent transactions
 - **Redis Caching** — cache derived balances to avoid full ledger scan on every request
-
+- **Event-Driven Messaging** - Asynchronous publishing of transaction events to Kafka topics with reliable error handling and logging
 
 
 ### 🚧 In Progress / Planned
@@ -33,28 +33,30 @@ A production-grade banking REST API built with **Java 21**, **Spring Boot 3**, a
 
 ## Versions
 
-| Version                                                                      | Description |
-|------------------------------------------------------------------------------|---|
+| Version                                                                      | Description                                                                              |
+|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
 | [v0.1.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.1.0) | Core banking features — auth, accounts, deposit, withdraw, transfer, transaction history |
-| [v0.2.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.2.0) | Idempotency keys for deposit, withdraw and transfer |
-| [v0.3.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.3.0) | Optimistic locking implemented     |
-| [v0.4.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.4.0) | Redis caching for balance derivation                              |
+| [v0.2.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.2.0) | Idempotency keys for deposit, withdraw and transfer                                      |
+| [v0.3.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.3.0) | Optimistic locking implemented                                                           |
+| [v0.4.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.4.0) | Redis caching for balance derivation                                                     |
+| [v0.5.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.5.0) | Kafka Integration - Asynchronous event production for transactions                       |
 
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology    |
-|---|---------------|
-| Language | Java 21       |
-| Framework | Spring Boot 3.5 |
-| Security | Spring Security, JWT  |
-| Database | PostgreSQL    |
-| Migrations | Flyway        |
-| Containerisation | Docker Compose |
-| Build Tool | Maven         |
-| Utilities | Lombok        |
+| Layer            | Technology           |
+|------------------|----------------------|
+| Language         | Java 21              |
+| Framework        | Spring Boot 3.5      |
+| Security         | Spring Security, JWT |
+| Database         | PostgreSQL           |
+| Migrations       | Flyway               |
+| Containerisation | Docker Compose       |
+| Build Tool       | Maven                |
+| Utilities        | Lombok               |
+| Message Broker   | Apache Kafka         |
 
 ---
 
@@ -90,8 +92,20 @@ Failed transactions are visible only to the sender — they need to know their t
 **Redis caching for balance derivation**
 Account balance is derived from ledger entries on cache miss and stored in Redis with a 24 hour TTL using the key `balance::{accountNumber}`. On every transaction the cache is invalidated after all DB writes succeed, ensuring the next balance read recalculates from the ledger and caches the fresh value. This avoids a full ledger scan on every request as the transaction history grows.
 
+**Asynchronous Event Production for Decoupling**
+Instead of the Core API calling other services (like Notifications or Fraud) directly via REST, it publishes a TransactionCreatedEvent to Kafka. This ensures the Core API remains fast and highly available; even if the Fraud service is down, the transaction still completes, and the event is processed whenever the consumer comes back online.
+
 ---
 
+
+
+## 🔗 Related Services
+
+This core API is designed to function within a distributed ecosystem. It acts as an **Event Producer**, broadcasting financial events that are consumed by specialized microservices:
+
+* **[Fraud Detection Service](https://github.com/visurachan/fraud-detection-service)** — A real-time consumer that listens to the `transaction.created` Kafka topic to analyze transaction patterns and flag suspicious activity without impacting the latency of the core banking flow.
+
+---
 ## Getting Started
 
 ### Prerequisites
@@ -128,6 +142,11 @@ spring:
     redis:
       host: localhost
       port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 jwt:
   secret: your_base64_encoded_secret
@@ -180,4 +199,4 @@ All endpoints are documented with request/response schemas and can be tested dir
 
 ## Project Status
 
-Core banking operations, transactional integrity, idempotency, concurrent transaction safety, and Redis caching for balance derivation are all complete. 
+Core banking operations, transactional integrity, idempotency, concurrent transaction safety, and Redis caching for balance derivation are all complete. The system now supports **Event-Driven Architecture** by emitting transaction events to Kafka, allowing downstream services (like Fraud Detection) to react in real time.
