@@ -1,6 +1,6 @@
 # banking-core-api
 
-A production-grade banking REST API built with **Java 21**, **Spring Boot 3**, and **PostgreSQL**, demonstrating the kind of backend engineering patterns used in real fintech systems — double-entry ledger accounting, idempotent transactions, optimistic locking for concurrency safety, and Redis-cached balance derivation.
+A production-grade banking REST API built with **Java 21**, **Spring Boot 3**, and **PostgreSQL**, implementing the backend engineering patterns used in production fintech systems — double-entry ledger accounting, idempotent transactions, optimistic locking for concurrency safety, and Redis-cached balance derivation.
 
 
 ## Features
@@ -138,6 +138,14 @@ Also make sure your `docker-compose.yml` is running both PostgreSQL and Redis be
 
 ---
 
+## API Documentation
+
+Interactive API documentation is available via Swagger UI when running locally:
+
+**URL:** `http://localhost:8080/swagger-ui.html`
+
+All endpoints are documented with request/response schemas and can be tested directly from the browser. Protected endpoints require a Bearer token — use the `/auth/login` response token and click **Authorize** in the Swagger UI.
+
 ## API Endpoints
 
 ### Auth — `/api/v1/auth`
@@ -164,9 +172,12 @@ Also make sure your `docker-compose.yml` is running both PostgreSQL and Redis be
 | POST   | `/{myAccountNumber}/transfer`  | Bearer Token | Transfer funds to another account |
 | GET    | `/{accountNumber}/transactions` | Bearer Token | Get paginated transaction history |
 
+> **Note:** Deposit and withdraw are intentionally public endpoints. In a real banking system,
+> these operations are  triggered by internal systems such as ATMs, teller terminals, or core banking
+> infrastructure rather than directly by the end user via online banking. Transfer is user initiated and therefore requires authentication.
+
 ---
 
 ## Project Status
 
-
-This project is a portfolio piece targeting backend engineering roles. Core banking operations, transactional integrity, idempotency, concurrent transaction safety, and Redis caching for balance derivation are all complete. 
+Core banking operations, transactional integrity, idempotency, concurrent transaction safety, and Redis caching for balance derivation are all complete. 
