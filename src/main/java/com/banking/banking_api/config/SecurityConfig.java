@@ -1,5 +1,6 @@
 package com.banking.banking_api.config;
 
+import com.banking.banking_api.filter.RateLimitFilter;
 import com.banking.banking_api.security.CustomeAuthenticationEntryPoint;
 import com.banking.banking_api.security.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
@@ -30,7 +31,7 @@ public class SecurityConfig {
 
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http , JwtAuthFilter jwtAuthFilter, CustomeAuthenticationEntryPoint authenticationEntryPoint) throws Exception{
+    public SecurityFilterChain filterChain(HttpSecurity http , JwtAuthFilter jwtAuthFilter, CustomeAuthenticationEntryPoint authenticationEntryPoint, RateLimitFilter rateLimitFilter) throws Exception{
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
@@ -47,6 +48,7 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint)
                 )
+                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
 

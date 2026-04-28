@@ -1,6 +1,16 @@
 # banking-core-api
 
-A production-grade banking REST API built with **Java 21**, **Spring Boot 3**, and **PostgreSQL**, It implements the backend engineering patterns used in production fintech systems — double-entry ledger accounting, idempotent transactions, optimistic locking for concurrency safety, and Redis-cached balance derivation. It also functions as an **Event Producer**, broadcasting financial events via **Apache Kafka** to support a decoupled microservices ecosystem.
+A production-grade banking REST API built with **Java 21**, **Spring Boot 3**, and **PostgreSQL**. It implements the backend engineering patterns used in production fintech systems such as double-entry ledger accounting, idempotent transactions, optimistic locking for concurrency safety, and Redis-cached balance derivation.
+
+The service operates within a three-service microservices architecture. It integrates with a standalone Rate Limiter Service for distributed per-user request throttling and functions as an **Event Producer**, broadcasting financial transaction events via **Apache Kafka** to a Fraud Detection Service for asynchronous real-time analysis.
+
+## MicroServices Architecture
+
+![Architecture](docs/architecture.png)
+
+> The Rate Limit Filter reads the JWT to identify the user for rate limiting
+> purposes but does not validate it. JWT validation occurs in the subsequent
+> JwtAuthFilter. Unauthenticated requests fall back to IP-based rate limiting.
 
 
 ## Features
@@ -20,31 +30,32 @@ A production-grade banking REST API built with **Java 21**, **Spring Boot 3**, a
 - **Optimistic Locking** - prevent race conditions on concurrent transactions
 - **Redis Caching** — cache derived balances to avoid full ledger scan on every request
 - **Event-Driven Messaging** - Asynchronous publishing of transaction events to Kafka topics with reliable error handling and logging
+- **Rate Limiting** — per-user request throttling via a standalone Rate Limiter Service. Integrated through a Spring Security filter before JWT authentication.
 
 
-### 🚧 In Progress / Planned
+### 🚧 Planned
 
 
 
-- **Rate Limiting** — per-user request throttling
 - **Currency Support** — multi-currency accounts with exchange rate handling
 
 ---
 
 ## Versions
 
-| Version                                                                      | Description                                                                              |
-|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
+| Version                                                                      | Description                                                                           |
+|------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
 | [v0.1.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.1.0) | Core banking features — auth, accounts, deposit, withdraw, transfer, transaction history |
-| [v0.2.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.2.0) | Idempotency keys for deposit, withdraw and transfer                                      |
-| [v0.3.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.3.0) | Optimistic locking implemented                                                           |
-| [v0.4.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.4.0) | Redis caching for balance derivation                                                     |
-| [v0.5.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.5.0) | Kafka Integration - Asynchronous event production for transactions                       |
+| [v0.2.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.2.0) | Idempotency keys for deposit, withdraw and transfer                                   |
+| [v0.3.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.3.0) | Optimistic locking implemented                                                        |
+| [v0.4.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.4.0) | Redis caching for balance derivation                                                  |
+| [v0.5.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.5.0) | Kafka Integration - Asynchronous event production for transactions                    |
+| [v0.6.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.6.0) | Rate limiting integration via standalone Rate Limiter Service                                                                                      |
 
 
 ---
 
-## Tech Stack
+## Tech Stack for core API
 
 | Layer            | Technology           |
 |------------------|----------------------|
@@ -101,10 +112,20 @@ Instead of the Core API calling other services (like Notifications or Fraud) dir
 
 ## 🔗 Related Services
 
-This core API is designed to function within a distributed ecosystem. It acts as an **Event Producer**, broadcasting financial events that are consumed by specialized microservices:
+This API is the core of a three-service microservices banking system.
+It communicates with two downstream services — one synchronously via
+HTTP before each request, and one asynchronously via Kafka after each transaction.
 
-* **[Fraud Detection Service](https://github.com/visurachan/fraud-detection-service)** — A real-time consumer that listens to the `transaction.created` Kafka topic to analyze transaction patterns and flag suspicious activity without impacting the latency of the core banking flow.
+* **[Rate Limiter Service](https://github.com/visurachan/rate-limiter)**
+  — A standalone distributed rate limiting microservice. Integrated via a Spring
+  Security filter that runs before JWT authentication on every request. Enforces
+  a limit of 20 requests per user with a refill rate of 5 tokens per second using
+  a Token Bucket algorithm executed atomically in Redis.
 
+* **[Fraud Detection Service](https://github.com/visurachan/fraud-detection-service)**
+  — A real-time Kafka consumer that listens to the `transaction.created` topic and
+  analyses transaction patterns to flag suspicious activity. Runs asynchronously —
+  the banking API never waits for fraud analysis, keeping transfer latency unaffected.
 ---
 ## Getting Started
 
@@ -197,6 +218,24 @@ All endpoints are documented with request/response schemas and can be tested dir
 
 ---
 
+## Rate Limiting Integration
+
+Rate limiting is implemented via the [Rate Limiter Service](https://github.com/visurachan/rate-limiter)
+SDK. The SDK wraps the HTTP call to the rate limiter into a single method,
+integrated as a Spring Security filter that runs before JWT authentication.
+
+```java
+RateLimiterClient.Result result = rateLimiterClient.check("banking", jwt);
+if (!result.allowed()) {
+    response.setStatus(429);
+    return;
+}
+```
+
+For full integration details see the
+[Rate Limiter SDK Integration Guide](https://github.com/visurachan/rate-limiter/blob/main/docs/SDK_INTEGRATION.md).
+
 ## Project Status
 
-Core banking operations, transactional integrity, idempotency, concurrent transaction safety, and Redis caching for balance derivation are all complete. The system now supports **Event-Driven Architecture** by emitting transaction events to Kafka, allowing downstream services (like Fraud Detection) to react in real time.
+
+All core features are complete and production-ready. The service implements double-entry ledger accounting, idempotent transactions, optimistic locking, Redis-cached balance derivation, Kafka event production, and distributed rate limiting via an integrated standalone Rate Limiter Service.
