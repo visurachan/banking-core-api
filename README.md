@@ -2,11 +2,11 @@
 
 A production-grade banking REST API built with **Java 21**, **Spring Boot 3**, and **PostgreSQL**. It implements the backend engineering patterns used in production fintech systems such as double-entry ledger accounting, idempotent transactions, optimistic locking for concurrency safety, and Redis-cached balance derivation.
 
-The service operates within a three-service microservices architecture. It integrates with a standalone Rate Limiter Service for distributed per-user request throttling and functions as an **Event Producer**, broadcasting financial transaction events via **Apache Kafka** to a Fraud Detection Service for asynchronous real-time analysis.
+The service operates within a four-service microservices architecture. It integrates with a standalone Rate Limiter Service for distributed per-user request throttling, functions as an **Event Producer** broadcasting financial transaction events via **Apache Kafka** to a Fraud Detection Service for asynchronous real-time analysis, and dispatches post-transfer email notifications through a standalone **Job Queue Service**.
 
 ## MicroServices Architecture
 
-![Architecture](docs/architecture.png)
+![Architecture](docs/Updated_architecture.png)
 
 > The Rate Limit Filter reads the JWT to identify the user for rate limiting
 > purposes but does not validate it. JWT validation occurs in the subsequent
@@ -31,6 +31,7 @@ The service operates within a three-service microservices architecture. It integ
 - **Redis Caching** — cache derived balances to avoid full ledger scan on every request
 - **Event-Driven Messaging** - Asynchronous publishing of transaction events to Kafka topics with reliable error handling and logging
 - **Rate Limiting** — per-user request throttling via a standalone Rate Limiter Service. Integrated through a Spring Security filter before JWT authentication.
+- **Async Email Notifications** — post-transfer email dispatched via a Job Queue Service using a `SEND_EMAIL` job type, keeping the transfer response fast and the notification path decoupled from the Core API.
 
 
 ### 🚧 Planned
@@ -51,6 +52,7 @@ The service operates within a three-service microservices architecture. It integ
 | [v0.4.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.4.0) | Redis caching for balance derivation                                                  |
 | [v0.5.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.5.0) | Kafka Integration - Asynchronous event production for transactions                    |
 | [v0.6.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.6.0) | Rate limiting integration via standalone Rate Limiter Service                                                                                      |
+| [v0.7.0](https://github.com/visurachan/banking-core-api/releases/tag/v0.7.0) | Job Queue integration — async email notifications dispatched on transfer completion                                                                |
 
 
 ---
@@ -106,6 +108,9 @@ Account balance is derived from ledger entries on cache miss and stored in Redis
 **Asynchronous Event Production for Decoupling**
 Instead of the Core API calling other services (like Notifications or Fraud) directly via REST, it publishes a TransactionCreatedEvent to Kafka. This ensures the Core API remains fast and highly available; even if the Fraud service is down, the transaction still completes, and the event is processed whenever the consumer comes back online.
 
+**Job Queue for Post-Transfer Email Notifications**
+After a successful transfer, the Core API submits a `SEND_EMAIL` job to the Job Queue Service rather than sending the email inline. This means the transfer response is returned to the client immediately without waiting on email delivery, and any email failures are handled independently by the job worker with its own retry logic. The Core API has no dependency on email infrastructure availability.
+
 ---
 
 
@@ -126,6 +131,12 @@ HTTP before each request, and one asynchronously via Kafka after each transactio
   — A real-time Kafka consumer that listens to the `transaction.created` topic and
   analyses transaction patterns to flag suspicious activity. Runs asynchronously —
   the banking API never waits for fraud analysis, keeping transfer latency unaffected.
+
+* **[Job Queue Service](https://github.com/visurachan/job-queue)**
+  — A standalone async job worker that processes background tasks submitted by the Core API.
+  After every successful transfer, the Core API submits a `SEND_EMAIL` job containing the
+  recipient address, subject, and body. The worker handles delivery and retries independently,
+  running on port `8083`.
 ---
 ## Getting Started
 
@@ -172,6 +183,9 @@ spring:
 jwt:
   secret: your_base64_encoded_secret
   expiration: 86400000
+
+job-queue:
+  url: http://localhost:8083
 ```
 
 Also make sure your `docker-compose.yml` is running both PostgreSQL and Redis before starting the application.
@@ -235,7 +249,24 @@ if (!result.allowed()) {
 For full integration details see the
 [Rate Limiter SDK Integration Guide](https://github.com/visurachan/rate-limiter/blob/main/docs/SDK_INTEGRATION.md).
 
+## Job Queue Integration
+
+Email notifications are dispatched via the [Job Queue Service](https://github.com/visurachan/job-queue)
+SDK. After a successful transfer, the Core API submits a `SEND_EMAIL` job with the recipient,
+subject, and body — the job worker handles delivery and retries independently.
+
+```java
+jobQueueClient.submit("SEND_EMAIL", Map.of(
+    "to", user.getEmail(),
+    "subject", "Transfer Completed",
+    "body", "Your transfer of " + amount + " " + currency +
+            " to account " + toAccount + " was successful. Reference: " + reference
+));
+```
+
+The `JobQueueClient` bean is configured in `JobQueueConfig` pointing to the Job Queue Service at `http://localhost:8083`.
+
 ## Project Status
 
 
-All core features are complete and production-ready. The service implements double-entry ledger accounting, idempotent transactions, optimistic locking, Redis-cached balance derivation, Kafka event production, and distributed rate limiting via an integrated standalone Rate Limiter Service.
+All core features are complete and production-ready. The service implements double-entry ledger accounting, idempotent transactions, optimistic locking, Redis-cached balance derivation, Kafka event production, distributed rate limiting via an integrated standalone Rate Limiter Service, and async email notifications via a Job Queue Service.

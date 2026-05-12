@@ -126,6 +126,12 @@
 			<artifactId>rl-service</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
+
+		<dependency>
+			<groupId>com.Job_Queue</groupId>
+			<artifactId>JQ_Service</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+		</dependency>
     </dependencies>
 
 

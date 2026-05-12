@@ -1,5 +1,6 @@
 package com.banking.banking_api.account;
 
+import com.Job_Queue.JQ_Service.sdk.JobQueueClient;
 import com.banking.banking_api.account.Dto.*;
 import com.banking.banking_api.common.exception.InsufficientFundsException;
 import com.banking.banking_api.common.exception.ResourceNotFoundException;
@@ -29,6 +30,7 @@ import java.math.BigDecimal;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -47,6 +49,7 @@ public class AccountService {
     private final IdempotencyService idempotencyService;
     private final RedisTemplate<String, String> redisTemplate;
     private final TransactionEventProducer transactionEventProducer;
+    private final JobQueueClient jobQueueClient;
 
     @Transactional
     public AccountResponseDto createNewCurrentAccount(String email) {
@@ -356,6 +359,16 @@ public class AccountService {
 
 
             idempotencyService.store(idempotencyKey, response, 201);
+
+
+            jobQueueClient.submit("SEND_EMAIL", Map.of(
+                    "to", user.getEmail(),
+                    "subject", "Transfer Completed",
+                    "body", "Your transfer of " + transferRequest.amount() +
+                            " " + myAccount.getCurrency() +
+                            " to account " + toAccount.getAccountNumber() +
+                            " was successful. Reference: " + transactionLog.getReference()
+            ));
 
             transactionEventProducer.publishTransactionCreated(
                     TransactionCreatedEvent.builder()
